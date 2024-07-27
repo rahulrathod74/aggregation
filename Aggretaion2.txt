@@ -1,0 +1,302 @@
+1.Write Mongo query to retrieve documents from the orders in ascending order by total.
+ans: db.orders.find({},{total:1,_id:1}).sort({total:1}).limit(10)
+[ { _id: 1, total: 50.25 }, { _id: 2, total: 1120 } ]
+
+
+2.Write Mongo query to retrieve the oldest paymentMethod from the payments collection as "_id".
+ans:db.payments.aggregate([{$sort:{createdAt:1}},{$limit:1},{$project:{_id:"$paymentMethod"}}])
+[ { _id: 'UPI' } ]
+
+3.Write Mongo query to retrieve 2nd and 3rd buyers from the buyers collection.
+ans:db.buyers.find().sort({name:1}).skip(1).limit(2)
+[
+  {
+    _id: 1,
+    name: 'John Smith',
+    email: 'john@hotmail.com',
+    address: {
+      street: '123 Main St',
+      city: 'New York',
+      state: 'NY',
+      zip: '10001'
+    }
+  }
+]
+
+4.Write Mongo query to retrieve the most Expensive product from order_details.
+ans: db.order_details.aggregate([
+...   {
+...     $lookup: {
+...       from: "products",
+...       localField: "product_id",
+...       foreignField: "_id",
+...       as: "product_info"
+...     }
+...   },
+...   {
+...     $unwind: "$product_info"
+...   },
+...   {
+...     $sort: {
+...       "product_info.price": -1
+...     }
+...   },
+...   {
+...     $limit: 1
+...   },
+...   {
+...     $project: {
+...       _id: "$product_info._id",
+...       name: "$product_info.name",
+...       price: "$product_info.price"
+...     }
+...   }
+... ])
+[ { _id: 1, name: 'iPhone 13', price: 999.99 } ]
+
+5.Write Mongo query to retrieve the first order from the orders as per the order_date.
+ans: db.orders.find().sort({order_date:1}).limit(1)
+[
+  {
+    _id: 1,
+    customer_id: 1,
+    order_date: ISODate('2022-03-01T00:00:00.000Z'),
+    ship_date: ISODate('2022-03-05T00:00:00.000Z'),
+    status: 'shipped',
+    total: 50.25
+  }
+]
+
+6.Write Mongo query to retrieve the last 3 orders from the orders collection who have less total amount.
+ans: db.orders.aggregate([{$sort:{total:1}},{$limit:3},{$sort:{_id:-1}}])
+[
+  {
+    _id: 2,
+    customer_id: 2,
+    order_date: ISODate('2022-04-01T00:00:00.000Z'),
+    ship_date: ISODate('2022-04-06T00:00:00.000Z'),
+    status: 'pending',
+    total: 1120
+  },
+  {
+    _id: 1,
+    customer_id: 1,
+    order_date: ISODate('2022-03-01T00:00:00.000Z'),
+    ship_date: ISODate('2022-03-05T00:00:00.000Z'),
+    status: 'shipped',
+    total: 50.25
+  }
+]
+
+7.Write Mongo query to retrieve the most recent shipped order from the orders collection.
+ans:db.orders.find({status:"shipped"}).sort({order_date:-1}).limit(1)
+[
+  {
+    _id: 1,
+    customer_id: 1,
+    order_date: ISODate('2022-03-01T00:00:00.000Z'),
+    ship_date: ISODate('2022-03-05T00:00:00.000Z'),
+    status: 'shipped',
+    total: 50.25
+  }
+]
+
+8.Write Mongo query to get the total revenue from all orders
+ans: db.orders.aggregate([{$group:{_id:null,totalRevenue:{$sum:"$total"}}}])
+[ { _id: null, totalRevenue: 1170.25 } ]
+
+9.Write Mongo query to retrieve all the orders that shipped before 2022-05-26
+ans: db.orders.find({status:"shipped",ship_date:{$lt:ISODate("2022-05-26T00:00:00Z")}})
+[
+  {
+    _id: 1,
+    customer_id: 1,
+    order_date: ISODate('2022-03-01T00:00:00.000Z'),
+    ship_date: ISODate('2022-03-05T00:00:00.000Z'),
+    status: 'shipped',
+    total: 50.25
+  }
+]
+10.Write Mongo query to find the maximum price as maxPrice of products and their names as name for each category.
+ans:db.products.aggregate([
+  {
+    $group: {
+      _id: "$category_id",
+      maxPrice: { $max: "$price" },
+      products: {
+        $push: {
+          name: "$name",
+          price: "$price"
+        }
+      }
+    }
+  },
+  {
+    $unwind: "$products"
+  },
+  {
+    $match: {
+      "products.price": { $eq: "$maxPrice" }
+    }
+  },
+  {
+    $group: {
+      _id: "$_id",
+      maxPrice: { $first: "$maxPrice" },
+      productNames: { $push: "$products.name" }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      category_id: "$_id",
+      maxPrice: 1,
+      productNames: 1
+    }
+  }
+])
+
+11.Write Mongo query to find Most used payment Method as paymentMethod and the number of time it is used as count.
+ans:db.payments.aggregate([
+  {
+    $group: {
+      _id: "$paymentMethod",
+      count: { $sum: 1 }
+    }
+  },
+  {
+    $sort: {
+      count: -1
+    }
+  },
+  {
+    $limit: 1
+  },
+  {
+    $project: {
+      _id: 0,
+      paymentMethod: "$_id",
+      count: 1
+    }
+  }
+])
+
+12.Write Mongo query to find the total count of orders by status.
+ans:db.orders.aggregate([{$group:{_id:"$status",totalCount:{$sum:1}}},{$sort:{_id:1}}])
+[
+  { _id: 'pending', totalCount: 1 },
+  { _id: 'shipped', totalCount: 1 }
+]
+
+13.Write Mongo query to retrieve the orders grouped by customer_id with the max total
+ans:db.orders.aggregate([
+  {
+    $group: {
+      _id: "$customer_id",
+      maxTotal: { $max: "$total" }
+    }
+  },
+  {
+    $lookup: {
+      from: "orders",
+      localField: "maxTotal",
+      foreignField: "total",
+      as: "orderDetails"
+    }
+  },
+  {
+    $unwind: "$orderDetails"
+  },
+  {
+    $project: {
+      _id: 0,
+      customer_id: "$_id",
+      order_id: "$orderDetails._id",
+      total: "$orderDetails.total",
+      order_date: "$orderDetails.order_date"
+    }
+  }
+])
+
+
+14..Assess the impact of RAM capacity on laptop prices and ratings. Group laptops by RAM capacity and analyze the average price and rating for each group. Identify any significant trends or outliers.
+ans: db.system.aggregate([{$group:{_id:"$ram_memory",averagePrice:{$avg:"$Price"},averageRating:{$avg:"$Rating"}}}])
+[
+  {
+    _id: 8,
+    averagePrice: 49675.014925373136,
+    averageRating: 57.80099502487562
+  },
+  {
+    _id: 16,
+    averagePrice: 87732.92720306513,
+    averageRating: 68.49425287356321
+  },
+  { _id: 32, averagePrice: 240932, averageRating: 82.25 },
+  { _id: 4, averagePrice: 53641.6, averageRating: 42.64 },
+  { _id: 2, averagePrice: 9800, averageRating: 41 },
+  { _id: 12, averagePrice: 46990, averageRating: 57 },
+  { _id: 36, averagePrice: 319900, averageRating: 63.5 }
+]
+
+
+15.Investigate the price and rating distribution for gaming laptops. Identify which brands are leading in the gaming laptop market by comparing the average price, rating, GPU type, and RAM capacity for laptops categorized as gaming.
+ans:db.laptops.aggregate([
+  {
+    $match: { category: "gaming" }  // Filter for gaming laptops
+  },
+  {
+    $group: {
+      _id: "$brand",  // Group by brand
+      averagePrice: { $avg: "$price" },  // Calculate the average price
+      averageRating: { $avg: "$rating" },  // Calculate the average rating
+      avgRAM: { $avg: { $toInt: { $substr: ["$ram_capacity", 0, { $indexOfBytes: ["$ram_capacity", "GB"] }] } } },  // Calculate the average RAM
+      gpuTypes: { $addToSet: "$gpu_type" },  // Collect unique GPU types
+      count: { $sum: 1 }  // Count the number of laptops per brand
+    }
+  },
+  {
+    $sort: { averagePrice: -1 }  // Sort by average price (optional, for better comparison)
+  }
+])
+
+16.Analyze the warranty periods offered by different brands and their correlation with laptop prices and ratings. Identify any patterns or insights regarding how warranty periods influence consumer ratings and pricing strategies
+ans:db.laptops.aggregate([
+  {
+    $group: {
+      _id: {
+        brand: "$brand",
+        warranty_period: "$warranty_period"
+      },
+      averagePrice: { $avg: "$price" },  // Calculate average price
+      averageRating: { $avg: "$rating" },  // Calculate average rating
+      count: { $sum: 1 }  // Count the number of laptops for each brand and warranty period
+    }
+  },
+  {
+    $sort: { 
+      "_id.brand": 1, 
+      "_id.warranty_period": 1  // Sort by brand and warranty period
+    }
+  }
+])
+
+17.Examine the relationship between processor brand (Intel, AMD, Apple) and laptop price, rating, and primary storage capacity. Group the laptops by processor brand and compare their average price, rating, and storage statistics to identify key differences.
+ans:db.laptops.aggregate([
+  {
+    $group: {
+      _id: "$processor_brand",  // Group by processor brand
+      averagePrice: { $avg: "$price" },  // Calculate the average price
+      averageRating: { $avg: "$rating" },  // Calculate the average rating
+      avgStorage: { $avg: { $toInt: { $substr: ["$primary_storage", 0, { $indexOfBytes: ["$primary_storage", "GB"] }] } } },  // Calculate the average primary storage
+      minStorage: { $min: { $toInt: { $substr: ["$primary_storage", 0, { $indexOfBytes: ["$primary_storage", "GB"] }] } } },  // Minimum primary storage
+      maxStorage: { $max: { $toInt: { $substr: ["$primary_storage", 0, { $indexOfBytes: ["$primary_storage", "GB"] }] } } },  // Maximum primary storage
+      count: { $sum: 1 }  // Count the number of laptops for each processor brand
+    }
+  },
+  {
+    $sort: { 
+      averagePrice: -1  // Optional: Sort by average price in descending order for better comparison
+    }
+  }
+])
